@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Prisma",
+    "slug": "prisma-ai",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.prisma.ai"
+    },
+    "android": {
+      "package": "com.prisma.ai"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-document-picker",
+      "expo-image-picker",
+      "expo-av"
+    ],
+    "scheme": "prisma",
+    "newArchEnabled": true
+  }
+}

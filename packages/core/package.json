@@ -1,0 +1,44 @@
+{
+  "name": "@prisma-ai/core",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./providers": "./src/providers/index.ts",
+    "./providers/adapters": "./src/providers/adapters/index.ts",
+    "./providers/registry": "./src/providers/registry.ts",
+    "./chat": "./src/chat/index.ts",
+    "./agents": "./src/agents/index.ts",
+    "./db": "./src/db/index.ts",
+    "./db/schema": "./src/db/schema.ts",
+    "./entitlements": "./src/entitlements/index.ts",
+    "./voice": "./src/voice/index.ts",
+    "./media": "./src/media/index.ts",
+    "./security": "./src/security/index.ts",
+    "./mcp": "./src/mcp/index.ts",
+    "./skills": "./src/skills/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint \"src/**/*.ts\" --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "dompurify": "^3.1.7",
+    "jsdom": "^25.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/dompurify": "^3.0.5",
+    "@types/jsdom": "^21.1.7",
+    "@types/node": "^22.5.0",
+    "@vitest/coverage-istanbul": "^5.0.5",
+    "@vitest/coverage-v8": "^2.1.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

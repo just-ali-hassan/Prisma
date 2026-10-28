@@ -4,9 +4,14 @@
 
 ## 1. High-Level Architecture
 
-Prisma is a local-first, multi-platform AI client. There is no backend. The user's device talks directly to provider APIs. All data (conversations, projects, settings) lives on-device in SQLite. API keys live in the OS secure store and never leave it except to authenticate with the provider.
+Prisma is a local-first, multi-platform AI client. There is no backend. The user's device talks directly to provider
+APIs. All data (conversations, projects, settings) lives on-device in SQLite. API keys live in the OS secure store and
+never leave it except to authenticate with the provider.
 
-The system is a Turborepo monorepo with three main packages: a shared TypeScript core (`@prisma-ai/core`), a React Native + Expo mobile app (`apps/mobile`), and a Tauri + React + Vite desktop app (`apps/desktop`). The core package contains all business logic — provider adapters, message normalization, the agent loop, tool/skill/plugin systems, the entitlements layer, and the capability table. The platform apps are thin UI shells that consume the core.
+The system is a Turborepo monorepo with three main packages: a shared TypeScript core (`@prisma-ai/core`), a React
+Native + Expo mobile app (`apps/mobile`), and a Tauri + React + Vite desktop app (`apps/desktop`). The core package
+contains all business logic — provider adapters, message normalization, the agent loop, tool/skill/plugin systems, the
+entitlements layer, and the capability table. The platform apps are thin UI shells that consume the core.
 
 ### System Context
 
@@ -114,9 +119,13 @@ graph LR
     DS --> CapTable
 ```
 
-Every adapter implements the same `ProviderAdapter` interface: `chat()`, `stream()`, `listModels()`, `cancel()`, and optional `generateImage()`, `speechToText()`, `textToSpeech()`, `embed()`. The capability table declares per-model what is supported. The UI reads this table to show/hide features. Adding a new provider means adding one adapter file, one test file, and one capability-table entry. Nothing else changes.
+Every adapter implements the same `ProviderAdapter` interface: `chat()`, `stream()`, `listModels()`, `cancel()`, and
+optional `generateImage()`, `speechToText()`, `textToSpeech()`, `embed()`. The capability table declares per-model what
+is supported. The UI reads this table to show/hide features. Adding a new provider means adding one adapter file, one
+test file, and one capability-table entry. Nothing else changes.
 
-All messages, tool calls, errors, and streaming events are normalized into an internal format before reaching the UI. Provider-specific fields go in an `extra` field so nothing is lost.
+All messages, tool calls, errors, and streaming events are normalized into an internal format before reaching the UI.
+Provider-specific fields go in an `extra` field so nothing is lost.
 
 ### Agent Loop
 
@@ -143,7 +152,9 @@ graph TD
     style K fill:#f99,stroke:#333
 ```
 
-The agent loop always enforces a step limit. A user-visible stop button is available at every step. A running cost estimate is displayed during execution. Tool results, web content, and files are treated as untrusted — prompt injection defenses are mandatory.
+The agent loop always enforces a step limit. A user-visible stop button is available at every step. A running cost
+estimate is displayed during execution. Tool results, web content, and files are treated as untrusted — prompt injection
+defenses are mandatory.
 
 ---
 
@@ -151,67 +162,70 @@ The agent loop always enforces a step limit. A user-visible stop button is avail
 
 ### Runtime & Languages
 
-| Layer | Technology | Reason |
-|---|---|---|
-| Shared core | TypeScript (strict mode) | Single language for all business logic. Shared between mobile and desktop. |
-| Mobile app | React Native + Expo | Cross-platform iOS/Android from one codebase. Expo simplifies builds, OTA updates, and native module access. |
-| Desktop app | Tauri v2 + React + Vite | Lightweight native shell (Rust). Much smaller than Electron. Shares TS core with mobile via the monorepo. |
-| Desktop backend | Rust (Tauri internals) | Tauri's native layer. Used for OS keychain bindings, file system access, MCP stdio server management. |
-| Build tooling | Python (occasional) | Only for scripting where it's the better tool. Reason stated whenever used. |
+| Layer           | Technology               | Reason                                                                                                       |
+| --------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Shared core     | TypeScript (strict mode) | Single language for all business logic. Shared between mobile and desktop.                                   |
+| Mobile app      | React Native + Expo      | Cross-platform iOS/Android from one codebase. Expo simplifies builds, OTA updates, and native module access. |
+| Desktop app     | Tauri v2 + React + Vite  | Lightweight native shell (Rust). Much smaller than Electron. Shares TS core with mobile via the monorepo.    |
+| Desktop backend | Rust (Tauri internals)   | Tauri's native layer. Used for OS keychain bindings, file system access, MCP stdio server management.        |
+| Build tooling   | Python (occasional)      | Only for scripting where it's the better tool. Reason stated whenever used.                                  |
 
 ### Monorepo & Package Management
 
-| Tool | Choice | Reason |
-|---|---|---|
-| Package manager | pnpm | Fast, strict dependency resolution, disk-efficient content-addressed store. Works well with monorepo workspaces. |
-| Monorepo orchestrator | Turborepo | Simple config, fast remote caching, good TypeScript monorepo support. Lower overhead than Nx for a solo builder. |
-| Workspaces | pnpm workspaces | Defined in root `pnpm-workspace.yaml`. Packages: `packages/core`, `apps/mobile`, `apps/desktop`. |
+| Tool                  | Choice          | Reason                                                                                                           |
+| --------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Package manager       | pnpm            | Fast, strict dependency resolution, disk-efficient content-addressed store. Works well with monorepo workspaces. |
+| Monorepo orchestrator | Turborepo       | Simple config, fast remote caching, good TypeScript monorepo support. Lower overhead than Nx for a solo builder. |
+| Workspaces            | pnpm workspaces | Defined in root `pnpm-workspace.yaml`. Packages: `packages/core`, `apps/mobile`, `apps/desktop`.                 |
 
 ### UI & State
 
-| Concern | Mobile | Desktop |
-|---|---|---|
-| UI framework | React Native | React (Vite) |
-| Navigation | Expo Router (file-based) | React Router or Tanstack Router |
-| State management | Zustand | Zustand |
-| Styling | React Native StyleSheet | Tailwind CSS |
+| Concern            | Mobile                          | Desktop                              |
+| ------------------ | ------------------------------- | ------------------------------------ |
+| UI framework       | React Native                    | React (Vite)                         |
+| Navigation         | Expo Router (file-based)        | React Router or Tanstack Router      |
+| State management   | Zustand                         | Zustand                              |
+| Styling            | React Native StyleSheet         | Tailwind CSS                         |
 | Markdown rendering | `react-native-markdown-display` | `react-markdown` + `rehype-sanitize` |
 
-Zustand stores live in the core package where possible (provider state, conversation state, entitlements). Platform-specific UI state (navigation, layout, keyboard) stays in the platform app.
+Zustand stores live in the core package where possible (provider state, conversation state, entitlements).
+Platform-specific UI state (navigation, layout, keyboard) stays in the platform app.
 
 ### Data & Storage
 
-| Concern | Technology | Details |
-|---|---|---|
-| Conversations, projects, settings | SQLite | Local on-device. Accessed via `expo-sqlite` (mobile) and `better-sqlite3` or Tauri SQL plugin (desktop). |
-| API key storage | OS secure store | `expo-secure-store` on mobile (iOS Keychain, Android Keystore). `keytar` on desktop (OS keychain bindings). |
-| File storage | Local filesystem | Uploaded files and generated images stored in app-local directories. |
-| Search | SQLite FTS5 | Full-text search over conversation history. Built into SQLite, no extra dependency. |
+| Concern                           | Technology       | Details                                                                                                     |
+| --------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| Conversations, projects, settings | SQLite           | Local on-device. Accessed via `expo-sqlite` (mobile) and `better-sqlite3` or Tauri SQL plugin (desktop).    |
+| API key storage                   | OS secure store  | `expo-secure-store` on mobile (iOS Keychain, Android Keystore). `keytar` on desktop (OS keychain bindings). |
+| File storage                      | Local filesystem | Uploaded files and generated images stored in app-local directories.                                        |
+| Search                            | SQLite FTS5      | Full-text search over conversation history. Built into SQLite, no extra dependency.                         |
 
 ### Testing
 
-| Scope | Runner | Details |
-|---|---|---|
-| Core package | Vitest | Fast, native ESM, TypeScript support without transform overhead. |
-| Mobile app | Jest | Expo's default. Same assertion style as Vitest. |
-| Desktop app | Vitest | Matches core package runner. |
-| All adapters | Vitest | Every adapter has a test file. All provider responses are mocked. Never calls real APIs in tests. |
-| E2E (future) | Detox (mobile), Playwright (desktop) | Not in M1. Add when UI stabilizes. |
+| Scope        | Runner                               | Details                                                                                           |
+| ------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Core package | Vitest                               | Fast, native ESM, TypeScript support without transform overhead.                                  |
+| Mobile app   | Jest                                 | Expo's default. Same assertion style as Vitest.                                                   |
+| Desktop app  | Vitest                               | Matches core package runner.                                                                      |
+| All adapters | Vitest                               | Every adapter has a test file. All provider responses are mocked. Never calls real APIs in tests. |
+| E2E (future) | Detox (mobile), Playwright (desktop) | Not in M1. Add when UI stabilizes.                                                                |
 
 ### CI/CD
 
-| Pipeline | Tool | Details |
-|---|---|---|
-| Lint, type-check, unit tests | GitHub Actions | Runs on every push and PR. Matrix: Node 20, pnpm. |
-| Mobile builds (iOS) | Expo EAS Build | Cloud build — no local Mac needed. Triggered from CI or CLI. |
-| Mobile builds (Android) | Expo EAS Build or local | Can build locally on Ubuntu (Android SDK). EAS as fallback. |
-| Desktop builds (Windows) | GitHub Actions (windows-latest) | Tauri build, output `.msi` / `.exe` installer. |
-| Desktop builds (macOS) | GitHub Actions (macos-latest) | Tauri build, output `.dmg`. No local Mac needed. |
-| Desktop builds (Linux) | GitHub Actions (ubuntu-latest) or local | Tauri build, output `.AppImage` / `.deb`. Lowest priority. |
+| Pipeline                     | Tool                                    | Details                                                      |
+| ---------------------------- | --------------------------------------- | ------------------------------------------------------------ |
+| Lint, type-check, unit tests | GitHub Actions                          | Runs on every push and PR. Matrix: Node 20, pnpm.            |
+| Mobile builds (iOS)          | Expo EAS Build                          | Cloud build — no local Mac needed. Triggered from CI or CLI. |
+| Mobile builds (Android)      | Expo EAS Build or local                 | Can build locally on Ubuntu (Android SDK). EAS as fallback.  |
+| Desktop builds (Windows)     | GitHub Actions (windows-latest)         | Tauri build, output `.msi` / `.exe` installer.               |
+| Desktop builds (macOS)       | GitHub Actions (macos-latest)           | Tauri build, output `.dmg`. No local Mac needed.             |
+| Desktop builds (Linux)       | GitHub Actions (ubuntu-latest) or local | Tauri build, output `.AppImage` / `.deb`. Lowest priority.   |
 
 ### Security (non-negotiable)
 
-API keys live only in the OS secure store. Never in AsyncStorage, SQLite, plain files, logs, crash reports, or source control. Keys go from the device straight to the provider — no middle server. No telemetry without explicit opt-in. All rendered model output (markdown, links, HTML, code) is sanitized. Tool results and MCP content are untrusted.
+API keys live only in the OS secure store. Never in AsyncStorage, SQLite, plain files, logs, crash reports, or source
+control. Keys go from the device straight to the provider — no middle server. No telemetry without explicit opt-in. All
+rendered model output (markdown, links, HTML, code) is sanitized. Tool results and MCP content are untrusted.
 
 ---
 
@@ -455,7 +469,9 @@ graph TD
     Keytar -.-> SecureStoreInterface
 ```
 
-The core package defines abstract interfaces for platform-specific concerns (secure storage, SQLite driver, file system). Each platform app injects its implementation at startup. This keeps the core package free of platform dependencies while letting it own all the logic.
+The core package defines abstract interfaces for platform-specific concerns (secure storage, SQLite driver, file
+system). Each platform app injects its implementation at startup. This keeps the core package free of platform
+dependencies while letting it own all the logic.
 
 ---
 
@@ -551,4 +567,4 @@ CREATE TABLE entitlements (
 
 ---
 
-*Last updated: 2026-10-25*
+_Last updated: 2026-10-25_

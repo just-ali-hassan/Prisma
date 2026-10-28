@@ -1,155 +1,374 @@
 # Prisma — Session Memory
 
-**Last updated:** 2026-10-25 16:46 UTC
+**Last updated:** 2026-10-28
 
 ---
 
 ## Current Status
 
-**Phase:** Documentation Complete — Ready to Start Phase 0
+**Phase:** M1 and M2 implementation is present; their remaining live/manual acceptance checks are open as described below. M3 implementation is complete across Core, Desktop, and Mobile (all 11 adapters registered, capability table agreement enforced, non-streaming chat fallback handled, unsupported settings blocked/hidden in UI, and full test suites passing). Live service verification is partially complete: NVIDIA NIM is verified live (both streaming and non-streaming); OpenAI is verified blocked by credit exhaustion; remaining 9 providers await API keys; mobile Android acceptance check is deferred until build environment/device is available.
 
-**Progress:** 0/290 tasks complete (0%)
+**Progress:** 705 passing tests in `@prisma-ai/core` with 100.00% statement, branch, function, and line coverage (34 test files). 14 passing tests in `@prisma-ai/desktop`. 3 passing tests in `@prisma-ai/mobile`. Full TypeScript typechecking passes with 0 errors across all workspaces. During the live provider audit, NVIDIA NIM (`nvidia/nemotron-3-ultra-550b-a55b`) was verified live with real streaming and non-streaming completions; OpenAI failed with HTTP 429 `credit_balance_exhausted`; remaining providers do not yet have configured API keys.
 
-All planning documents are finalized. No code has been written yet. The project is ready to begin implementation starting with Phase 0 (project setup).
+### M1 Completion Summary (updated 2026-10-28)
+
+- **M1 (Streaming Text Chat)**:
+  - Startup & Key Retrieval: `initializeCore()` initializes DB, entitlements, and provider registry in order before Chat mounts. OpenAI adapter queries platform `KeyManager` at request time. Desktop `App.tsx` handles initialization errors properly without hanging.
+  - Single Finalization & Event Deduplication: Stream handler, adapter, and `ChatSession` ensure assistant message is finalized exactly once across normal completion, `[DONE]`, cancellation, and errors.
+  - Safe Markdown & Secret Redaction: `ChatBubble` uses `react-markdown` + `rehype-sanitize` to render markdown safely; error banners display clear messages without exposing secrets.
+  - Unit Tests: 389 tests passing across 24 test files in `@prisma-ai/core`.
+  - Core Coverage: **100.00% Statements, 100.00% Branches, 100.00% Functions, 100.00% Lines** with thresholds set to 100% in `vitest.config.ts`.
+  - Desktop: Tauri `cargo check` passes with Visual Studio Build Tools 2026. Windows credential storage is enabled and API-key save/read has been manually confirmed. Vite watcher excludes the Rust `target` output so the desktop app launches. Live OpenAI streaming/cancellation still awaits account credits.
+
+### Verification Status (updated 2026-10-28)
+
+- Core Vitest: 705/705 tests pass (34 test files, exit code 0)
+- Core Coverage: 100.00% statements, 100.00% branches, 100.00% functions, 100.00% lines (100% threshold enforced, exit code 0)
+- Core ESLint: PASS (`eslint "src/**/*.ts" --max-warnings 0`, 0 warnings, 0 errors)
+- Core TypeScript: PASS (`tsc --noEmit`, 0 errors)
+- Desktop TypeScript: PASS (`tsc --noEmit`, 0 errors)
+- Desktop Vite Build: PASS (`tsc --noEmit && vite build`)
+- Desktop Vitest Suite: PASS (`apps/desktop/src/__tests__/chatFlow.test.ts`, 14/14 tests pass)
+- Mobile Jest Suite: PASS (`apps/mobile/components/__tests__/ModelPicker.test.tsx`, 3/3 tests pass)
+- Mobile TypeScript: PASS (`tsc --noEmit`, 0 errors)
+- Live Provider Test (NVIDIA): PASS — live token streaming & non-streaming responses verified with active NIM endpoint model
+- Live Provider Test (OpenAI): FAILED — HTTP 429 `credit_balance_exhausted` (quota exhausted on live account)
+- Live Provider Test (9 remaining): PENDING — awaiting user API keys (Anthropic, Google, DeepSeek, xAI, OpenRouter, OmniRoute, Groq, Together, Fireworks)
+- Native Desktop Build & Run: PASS (`pnpm tauri dev` compiles and runs natively, PID active, WebView2 window initialized, SQLite database connected)
+- Desktop M2 chat flow sequence (create conversation, switch models, adjust params, search history): PASS — verified in running desktop app and end-to-end integration test suite
+- Desktop M2 persistence: PASS — SQLite persistence verified across conversation reloads and FTS5 search
+- Android M2/M3 manual flow: DEFERRED until the end of planned work. Expo Go launch was attempted, but physical device/build environment is currently unavailable.
+- Mobile startup troubleshooting: Expo initially reported a missing expo-sqlite module while resolving its app-config plugin, so that plugin entry was removed (SQLite remains installed and used by the app). The next launch reported missing icon/adaptive-icon assets; the absent icon, splash-image, and favicon references were removed from `apps/mobile/app.json`. The app has not been relaunched after that change. Expo CLI also printed package-version compatibility warnings; these have not yet been investigated.
+- Mobile M2/M3 verification: PENDING until the deferred Android run. ModelPicker and ParameterSheet components are implemented and connected to the chat screen, but phone behavior, persistence, and successful startup still need manual verification on a device/emulator.
 
 ---
 
 ## Completed
 
-### Documentation (2026-10-25)
+### Phase 0: Project Setup (19/19 tasks) ✅
 
-- ✅ **PRD.md** — Product requirements, target users, goals, M1-M9 feature breakdown
-- ✅ **ARCHITECTURE.md** — High-level architecture, tech stack, folder structure, SQLite schema
-- ✅ **RULES.md** — Development rules, coding standards, project structure guidelines
-- ✅ **DESIGN.md** — Design system with tokens, components, NVIDIA green accent (#76B900)
-- ✅ **TASK.md** — Phase 0 + M1-M9 broken into 290 actionable tasks
+- ✅ Git repository initialized with proper `.gitignore`
+- ✅ Root `package.json` with workspace scripts
+- ✅ pnpm workspaces configured (`pnpm-workspace.yaml`)
+- ✅ Turborepo configured (`turbo.json`) with proper pipelines
+- ✅ Shared TypeScript config (`tsconfig.base.json`) with strict mode + path aliases
+- ✅ ESLint config (`.eslintrc.js`) with type-checked rules, `no-explicit-any: error`
+- ✅ Prettier config (`.prettierrc`) with sensible defaults
+- ✅ Folder structure created: `packages/core`, `apps/mobile`, `apps/desktop`
+- ✅ Core package initialized with TypeScript + Vitest
+- ✅ Mobile app initialized with Expo + Expo Router
+- ✅ Desktop app initialized with Tauri + Vite + Tailwind
+- ✅ Path aliases configured (`@prisma-ai/core`, `@/components`, etc.)
+- ✅ Vitest config for core package
+- ✅ Jest config for mobile app (jest-expo)
+- ✅ GitHub Actions CI workflow (`.github/workflows/ci.yml`)
+- ✅ Pre-commit hook script (`scripts/verify-keys-not-leaked.sh`)
+- ✅ Setup script (`scripts/setup.sh`)
+- ✅ README.md with comprehensive setup instructions
+- ✅ Verified: Dependencies install, builds configured
 
-### Key Decisions Made
+**Quality Assessment:** EXCELLENT
+- Follows ARCHITECTURE.md exactly
+- Matches RULES.md standards (strict mode, typed errors, path aliases)
+- All configs are production-ready
+- TypeScript strict mode enforced everywhere
+- Proper error class hierarchy defined (8 provider error types)
 
-**Architecture:**
-- Turborepo monorepo with pnpm
-- Three packages: `@prisma-ai/core`, `apps/mobile`, `apps/desktop`
-- Mobile: React Native + Expo, Expo Router, StyleSheet
-- Desktop: Tauri v2 + React + Vite, Tailwind CSS
-- State: Zustand (both platforms)
-- Database: SQLite (expo-sqlite mobile, better-sqlite3 desktop)
-- Secure storage: expo-secure-store mobile, keytar desktop
-- Testing: Vitest (core + desktop), Jest (mobile)
+### Skeleton Structure Created (Bonus)
 
-**Design:**
-- Modern minimal aesthetic
-- Customizable (light + dark modes)
-- NVIDIA green #76B900 primary accent
-- System fonts (San Francisco, Roboto, Segoe UI)
-- 4px spacing scale, small border radius (4-8px)
-- Flat list chat UI (no bubbles)
-- Radix UI (desktop), custom components (mobile)
-- Lucide icons
-- Minimal animations
+Beyond Phase 0, skeleton files were created for M1-M8:
+- ✅ All core module directories: `agents/`, `chat/`, `db/`, `entitlements/`, `mcp/`, `media/`, `providers/`, `security/`, `skills/`, `voice/`
+- ✅ Desktop UI: `App.tsx` with routing, `Sidebar`, all 5 pages
+- ✅ Mobile UI: Expo Router structure with all 5 tab screens
+- ✅ Tauri commands: `keychain.rs`, `mcp.rs`, `files.rs`
+- ✅ Provider types fully defined in `providers/types.ts` (ProviderAdapter interface, NormalizedMessage, StreamEvent, 8 error classes)
 
-**Development:**
-- Trunk-based branching (main + short-lived feature branches)
-- Imperative commit messages (no prefix convention)
-- Typed error classes (ProviderAuthError, NetworkError, etc.)
-- Absolute imports with path aliases
-- Reason-focused code comments
-- 100% test coverage for core package
+### Documentation (6/6 files) ✅
+
+- ✅ **PRD.md** — Product requirements, M1-M9 features
+- ✅ **ARCHITECTURE.md** — System design, tech stack, folder structure, SQLite schema
+- ✅ **RULES.md** — Development rules, coding standards
+- ✅ **DESIGN.md** — Design system (NVIDIA green #76B900, tokens, components)
+- ✅ **TASK.md** — 290 tasks across Phase 0 + M1-M9
+- ✅ **README.md** — Setup instructions, project overview
+
+---
+
+## Completed
+
+### M1: Streaming Text Chat (implementation present; acceptance pending)
+
+**Goal:** One provider adapter (OpenAI) working end-to-end on desktop. User sends a message, response streams token by token.
+
+### Core Package (16 tasks) ✅
+
+1. ✅ Define `ProviderAdapter` interface — **DONE**
+2. ✅ Define `NormalizedMessage` type — **DONE**
+3. ✅ Define `StreamEvent` types — **DONE**
+4. ✅ Create provider registry — **DONE**
+4. ✅ Create capability table — **DONE**
+6. ✅ Implement OpenAI adapter (`adapters/openai.adapter.ts`) — 12 tests passing
+7. ✅ Write tests for OpenAI adapter — **12 tests passing**
+8. ✅ Create `KeyManager` interface — **DONE**
+9. ✅ Implement message normalizer — **22 tests passing**
+10. ✅ Implement stream handler — **8 tests passing**
+11. ✅ Write tests for stream handler
+11. ✅ Implement chat session manager — **17 tests passing**
+12. ✅ Write tests for chat session manager
+13. ✅ Create typed error classes — **DONE**
+14. ✅ Write barrel export — **DONE**
+15. ✅ Verify: Core package builds, all tests pass
+
+### Desktop App (15 tasks) ✅
+
+17. ✅ Tauri secure store command (`src-tauri/src/commands/keychain.rs`)
+18. ✅ `KeyManager` wrapper calling Tauri keychain command
+19. ✅ Zustand store for chat state (`src/stores/chatStore.ts`)
+20. ✅ Chat page component (`src/pages/Chat.tsx`)
+21. ✅ ChatBubble component (`src/components/ChatBubble.tsx`)
+22. ✅ ChatInput component (`src/components/ChatInput.tsx`)
+23. ✅ Implement streaming: connect UI to core's `chat.stream()` method
+24. ✅ Markdown rendering (`react-markdown` + `rehype-sanitize`)
+24. ✅ Error handling UI
+26. ✅ Settings page with OpenAI API key input (`src/pages/Settings.tsx`)
+27. ✅ Wire up key input to `KeyManager`
+28. ✅ Cancel button (abort streaming)
+29. ✅ Apply design tokens from DESIGN.md (Tailwind config)
+30. [ ] Manual test: Send message → streaming response → cancel works — PENDING; live test has not been run because the OpenAI account has no credits.
+31. ✅ Verify: Desktop app builds and launches; API-key save/read works. Live OpenAI streaming is still unverified.
+
+### Provider Startup Fix ✅ COMPLETED
+
+- [x] Create platform `KeyManager` implementations (desktop Tauri, mobile Expo SecureStore)
+- [x] Create core `initializeCore()` function that initializes DB, entitlements, and registers providers
+- [x] Call `registerProviders(keyManager)` exactly once at startup in both apps
+- [x] Avoid duplicate registration during React Strict Mode / navigation (concurrency-safe with promise-based locking)
+- [x] Ensure OpenAI adapter reads keys through platform secure store at request time
+- [x] Add tests for provider registration and startup wiring (9 tests passing)
+- [x] Make `initializeCore()` concurrency-safe with promise-based locking
+- [x] Desktop app waits for `initializeCore()` before rendering routes, shows loading/error states
+- [x] Fixed duplicate `initialize_database` definitions in Rust database.rs
+
+---
+
+## Completed
+
+### M2: Local History, Model Switching, and Parameters (implementation present; acceptance partially verified)
+
+**Goal:** Conversations persist in SQLite. Model switcher. Adjustable parameters. Custom system prompts. Markdown rendering. Entitlements layer.
+
+### Core Package ✅
+
+- [x] Create SQLite schema (`db/schema.ts`) — conversations, messages, settings, projects, entitlements, FTS5
+- [x] Implement migrations system — version counter, apply on startup
+- [x] Create conversations CRUD — 23 tests passing
+- [x] Write tests for conversations CRUD
+- [x] Add FTS5 virtual table for search — `messages_fts` with triggers
+- [x] Implement search function — 14 tests passing
+- [x] Write tests for search
+- [x] Create settings store — 8 tests passing
+- [x] Write tests for settings store
+- [x] Create entitlements system — 16 tests passing
+- [x] Write tests for entitlements
+- [x] Add capability table entries for OpenAI models
+- [x] Update chat session to persist messages after completion
+- [x] Verify: All DB operations work, tests pass (392 tests, 100% coverage)
+
+### Desktop App ✅
+
+- [x] Integrate Tauri SQL plugin (better-sqlite3 equivalent)
+- [x] Initialize database on app startup, run migrations
+- [x] Create History page with conversation list — `src/pages/History.tsx`
+- [x] Add search bar to History page (FTS5 queries)
+- [x] Create ModelPicker component — `src/components/ModelPicker.tsx`
+- [x] Wire ModelPicker to capability table
+- [x] Add model switcher to Chat page header
+- [x] Create ParameterPanel component (temp, max_tokens, top_p, etc.)
+- [x] Add system prompt textarea to settings
+- [x] Wire parameters to chat session
+- [x] Add conversation export (JSON, Markdown)
+- [x] Show token count and estimated cost per message
+- [x] Add conversation title auto-generation (first message preview)
+- [x] Add delete conversation action
+- [x] Style all new components per DESIGN.md
+- [x] Manual test: Create conversation → switch model → adjust params → search history (verified in running desktop app and end-to-end integration test suite)
+- [x] Verify: History persists across app restarts, search works (SQLite persistence and FTS5 search verified)
+- [x] Desktop app compiles and runs: PASS ("Database initialized successfully")
+- [x] Desktop typecheck: PASS
+- [x] Desktop build: PASS
+
+### Mobile App ⚠️
+
+- [x] Integrate `expo-sqlite`
+- [x] Initialize database on app startup, run migrations (shared schema)
+- [x] Create chat screen — `app/(tabs)/index.tsx`
+- [x] Create history screen — `app/(tabs)/history.tsx`
+- [x] Create settings screen — `app/(tabs)/settings.tsx`
+- [x] Implement ChatBubble component (RN version)
+- [x] Implement ChatInput component (RN version)
+- [x] Implement ModelPicker (RN modal)
+- [x] Implement ParameterSheet (RN modal)
+- [x] Add search to history screen
+- [x] Wire up streaming chat (core package integration)
+- [ ] Manual test on Android device: Full M2 flow — DEFERRED until the end; app launch has not succeeded yet
+- [ ] Verify: Mobile app starts, chat works, model/parameter controls work, and history persists — DEFERRED until the end
+- [x] Mobile typecheck: PASS
+- [x] Add model switcher and parameter controls to the mobile chat screen
 
 ---
 
 ## In Progress
 
-**Nothing in progress yet.** Ready to start Phase 0.
-
----
-
-## Blocked
-
-**No blockers.** All decisions made, all docs complete.
+**M2 is active; mobile GUI/device acceptance checks are intentionally deferred until the end of planned work.** Desktop implementation and its documented M2 manual checks are complete. The mobile ModelPicker and ParameterSheet are implemented and wired into Chat. Do not mark M2 complete until Android startup and the deferred mobile acceptance checks pass.
 
 ---
 
 ## Next Steps
 
-### Immediate (Start Phase 0)
+### M2 Remaining Work (mobile GUI/device verification deferred until end)
 
-1. Initialize Git repository
-2. Set up pnpm workspaces and Turborepo
-3. Create folder structure (`packages/core`, `apps/mobile`, `apps/desktop`)
-4. Configure TypeScript, ESLint, Prettier
-5. Initialize core package
-6. Initialize Expo mobile app
-7. Initialize Tauri desktop app
-8. Set up CI (GitHub Actions)
-9. Verify build pipeline works end-to-end
+1. [ ] Restart Expo after the app.json asset-reference fix and confirm the app launches on Android.
+2. [ ] On Android, test model selection (OpenAI models), parameter changes, sending a chat message, history/search, and persistence after reopening the app.
+3. [ ] Record the results and any remaining issues before closing M2.
 
-**Goal:** Complete all 19 Phase 0 tasks before starting M1.
+Desktop M2 manual flow and persistence checks are recorded as passed above. Mobile implementation is present; Android acceptance remains intentionally deferred until the end. M1 live streaming/cancellation acceptance is still separately pending because OpenAI credits were unavailable.
 
-### After Phase 0
+### M3: Multi-Provider Support (Implementation complete; live verification partially verified)
 
-Start **M1 (Streaming Text Chat)** — OpenAI adapter working end-to-end on desktop.
+**Status:** Implementation is complete across all layers. All 11 provider adapters are implemented, unit-tested, and registered via `registerProviders()`. Capability table agreement is strictly validated at runtime (`assertCapabilityTableAgreement()`). Chat session handles non-streaming fallback and unsupported parameter stripping. Desktop and mobile UI adapt dynamically to model capabilities (ParameterPanel and ParameterSheet disable/hide unsupported options, and chat UI shows clear error banners). Full automated test coverage passes (705 core tests at 100% coverage, 14 desktop tests, 3 mobile tests). Live API testing verified NVIDIA NIM live; OpenAI was tested and reported exhausted credits; the remaining 9 providers await API keys; and mobile on Android awaits a device/build environment.
+
+**Implementation Status & Verification Checklist:**
+
+- [x] Reconcile capability table, adapters' `supportedModels`, and model picker on exact provider model IDs, with startup consistency check (`assertCapabilityTableAgreement()`).
+- [x] Respect model's streaming capability in `packages/core/src/chat/chat-session.ts` (falls back to `adapter.chat()` when `streaming: false`).
+- [x] Add unsupported-feature handling in desktop and mobile (disable/hide unsupported parameters in ParameterPanel / ParameterSheet, strip unsupported options before API calls, and show clear error alerts).
+- [x] Add tests for model/catalog consistency, streaming versus non-streaming behavior, unsupported parameters/features, and provider error handling.
+- [x] Reconcile the M3 checklists in `Docs/TASK.md` and `Docs/MEMORY.md` (remove duplicate items and accurately reflect completed work).
+- [x] Live provider verification — NVIDIA NIM: **VERIFIED** on desktop (live token streaming and non-streaming completions working).
+- [ ] Live provider verification — OpenAI: **NOT VERIFIED** (HTTP 429 `credit_balance_exhausted`; requires active credits).
+- [ ] Live provider verification — 9 remaining providers (Anthropic, Google, DeepSeek, xAI, OpenRouter, OmniRoute, Groq, Together, Fireworks): **NOT VERIFIED** (requires API keys).
+- [ ] Live mobile verification — Android: **PENDING / DEFERRED** (requires physical Android device or emulator).
+
+## Blocked
+
+**No hard blockers recorded.** M3 work is deferred, not blocked: code fixes can be resumed later. Android launch and device verification are still pending. The mobile ModelPicker and ParameterSheet components exist; older notes claiming those components are missing are stale.
 
 ---
 
 ## Known Issues
 
-**None yet.** No code written.
+### Coverage Status: 100% Achieved ✅
+
+100.00% statement, branch, function, and line coverage achieved across all measured modules in `@prisma-ai/core` (705 passing tests in Vitest). Strict coverage thresholds (100%) enforced in `vitest.config.ts`. All previous coverage gaps in chat-session, entitlements, adapters, DB, and security modules have been resolved with targeted unit tests.
+
+---
+
+## Blocked
+
+**M1/M2 remain open** until the listed blockers are resolved and acceptance tests pass.
 
 ---
 
 ## Technical Debt
 
-**None yet.** Project hasn't started.
+### Low Priority
+- Coverage threshold (100%) is too strict for error paths and M3+ features
+- Decorator tests for entitlements skipped due to test environment limitations
+- Some error handling paths in openai.adapter.ts are difficult to trigger without real API calls
 
 ---
 
 ## Decisions Pending
 
-**None.** All architectural and design decisions are finalized in the docs.
+**None.** M1/M2 architectural decisions finalized.
 
 ---
 
 ## Notes for Future Sessions
 
-### Provider API Keys Needed for Testing
+### API Keys Needed for M1 Testing
+- **OpenAI API key** — Required for M1 testing
+- Store in `.env.test.local` (gitignored)
+- Add to Settings page for manual testing
 
-When M1 starts, you'll need API keys for:
-- OpenAI (required for M1)
-- Anthropic, Google, DeepSeek, xAI, NVIDIA, OpenRouter, OmniRoute, Groq, Together, Fireworks (required for M3)
+### Testing Strategy
+- **Core package:** Mock all OpenAI API calls in tests. Never call real APIs.
+- **Desktop app:** Manual testing for M1 (end-to-end with real API key)
+- **100% coverage requirement:** Core package only (not UI)
+- **M1/M2 critical paths:** 100% coverage achieved for chat-session.ts, stream-handler.ts, conversations.ts, schema.ts, openai.adapter.ts core paths
 
-Store test keys in `.env.test.local` (gitignored). Never commit real keys.
-
-### Platform-Specific Setup
-
-**Mobile testing:** Need Android device or emulator. iOS build requires Apple Developer account ($99/year) and macOS machine (use EAS cloud build).
-
-**Desktop testing:** Can build/test on Ubuntu (Windows/Mac via GitHub Actions).
-
-### Store Submission Reminders
-
-When M9 arrives:
-- Apple Developer account: $99/year
-- Google Play: $25 one-time
-- Privacy policy must be live before submission
-- AI apps often rated 17+ (research current guidelines)
-- Explain BYOK model clearly in submission notes
+### Phase 0 Quality Notes
+Whoever implemented Phase 0 (likely Nemotron-3 Ultra in OpenCode) did excellent work:
+- Architecture compliance: Perfect
+- TypeScript quality: Strict mode, no `any`, proper typing
+- Error handling: Full typed error hierarchy
+- Configs: Production-ready ESLint, Prettier, Turbo, tsconfig
+- Documentation: README is comprehensive
 
 ---
 
 ## Session History
 
-### 2026-10-25 (Session 1)
+### 2026-10-25 (Session 1 - Planning)
 
 **What happened:**
-- Created all five planning documents (PRD, ARCHITECTURE, RULES, DESIGN, TASK)
+- Created all 6 planning documents (PRD, ARCHITECTURE, RULES, DESIGN, TASK, MEMORY)
 - Made all architectural and design decisions
 - Broke M1-M9 into 290 tasks
-- Project is ready to start implementation
 
-**Time spent:** ~2 hours (all planning, no code)
+**Time spent:** ~2 hours (planning only)
 
-**Next session should:** Start Phase 0 (repo setup)
+**Model:** Claude Sonnet 4.5
 
 ---
 
-*This file tracks session-to-session context. Update it at the end of each coding session with progress, blockers, and decisions.*
+### 2026-10-26 (Session 2 - Phase 0 Audit)
+
+**What happened:**
+- Audited Phase 0 work done in OpenCode (Nemotron-3 Ultra 550B)
+- Confirmed Phase 0 quality: EXCELLENT (19/19 tasks complete)
+- Identified M1 as next phase
+
+**Phase 0 completed by:** Nemotron-3 Ultra 550B (in OpenCode)
+
+**Quality verdict:** Continue with Nemotron — Phase 0 is production-ready
+
+**Next session should:** Start M1 — implement OpenAI adapter in OpenCode
+
+**Model:** Claude Opus 4.6 (this session - audit/PM role)
+
+---
+
+### 2026-10-26 (Session 3 - M1/M2 Implementation)
+
+**What happened:** Completed M1 (Streaming Text Chat) and M2 (Local History, Model Switching, Parameters) milestones.
+- Fixed 13 failing core tests (chat session, streaming, message normalization)
+- Implemented OpenAI adapter, stream handler, chat session, message normalizer
+- Fixed all 13 failing tests
+- Implemented M2: SQLite schema, migrations, FTS5 search, settings, entitlements
+- Wired desktop and mobile apps for chat persistence, history, search, export
+- All 287 core tests pass
+- Desktop and mobile typecheck/build pass
+
+**Models used:** Nemotron-3 Ultra 550B (OpenCode for implementation), Claude Opus 4.6 (audit/PM role)
+
+**Time spent:** ~4 hours (implementation + testing + debugging)
+
+---
+
+## Workflow Clarification
+
+**Sonnet/Opus role (in this Claude session):**
+- Project management & progress tracking
+- Quality audits & compliance checks
+- Documentation maintenance (TASK.md, MEMORY.md)
+- Architecture guidance & blocker resolution
+
+**Nemotron role (in OpenCode):**
+- Actual code implementation
+- Follow specs (ARCHITECTURE.md, RULES.md, DESIGN.md)
+- Execute tasks from TASK.md in order
+
+---
+
+_This file tracks session-to-session context. Updated at end of each session._
