@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useState } from 'react';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { Send, Paperclip, Mic, Square, Sparkles, MessageSquare, SlidersHorizontal } from 'lucide-react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, Image } from 'react-native';
+import { Send, Paperclip, Mic, Square, Sparkles, MessageSquare, SlidersHorizontal, Image as LucideImage, FileText } from 'lucide-react-native';
 import { colors, spacing, radius, fontSize, lineHeight, fontWeight, touchTarget, getThemeColors } from '@/theme/tokens';
 import { useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,8 +8,11 @@ import Markdown from 'react-native-markdown-display';
 import { useChatStore } from '@/stores/chatStore';
 import { ModelPicker } from '@/components/ModelPicker';
 import { ParameterSheet } from '@/components/ParameterSheet';
-import type { NormalizedMessage, ProviderId } from '@prisma-ai/core/providers';
+import type { NormalizedMessage, ProviderId, Attachment } from '@prisma-ai/core/providers';
 import { isModelUsable, MODEL_CAPABILITIES } from '@prisma-ai/core/providers';
+import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
+import { getFileInfo, validateFile, arrayBufferToBase64 } from '@prisma-ai/core/utils';
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
@@ -50,11 +53,97 @@ export default function ChatScreen() {
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [showParameterSheet, setShowParameterSheet] = useState(false);
   const [attachments, setAttachments] = useState<NonNullable<NormalizedMessage['attachments']>>([]);
+  const [pickingFile, setPickingFile] = useState(false);
 
   const selectedEntry = MODEL_CAPABILITIES.find(
     (m) => m.id === currentModel && m.provider === currentProvider
   );
   const caps = selectedEntry?.capabilities;
+
+  const pickImage = useCallback(async () => {
+    if (caps?.vision === false) {
+      Alert.alert('Not Supported', `${selectedEntry?.name ?? currentModel} does not support image attachments.`);
+      return;
+    }
+    setPickingFile(true);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        if (asset.base64) {
+          const fileInfo = getFileInfo(asset.mimeType ?? 'image/jpeg', asset.fileName ?? 'image.jpg', asset.fileSize ?? 0);
+          const validationError = validateFile(asset.mimeType ?? 'image/jpeg', fileInfo.name, asset.fileSize ?? 0);
+          if (validationError) {
+            Alert.alert('Invalid File', validationError);
+            return;
+          }
+
+          const attachment: Attachment = {
+            type: 'image',
+            path: `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`,
+            mimeType: asset.mimeType ?? 'image/jpeg',
+            filename: asset.fileName ?? 'image.jpg',
+          };
+
+          setAttachments((prev) => [...prev, attachment]);
+        }
+      }
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to pick image');
+    } finally {
+      setPickingFile(false);
+    }
+  }, [caps, currentModel, selectedEntry]);
+
+  const pickDocument = useCallback(async () => {
+    if (caps?.fileInput === false) {
+      Alert.alert('Not Supported', `${selectedEntry?.name ?? currentModel} does not support file attachments.`);
+      return;
+    }
+    setPickingFile(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'text/*', 'application/json', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = reader.result as string;
+          const fileInfo = getFileInfo(asset.mimeType ?? 'application/octet-stream', asset.name ?? 'file', asset.size ?? 0);
+          const validationError = validateFile(asset.mimeType ?? 'application/octet-stream', fileInfo.name, asset.size ?? 0);
+          if (validationError) {
+            Alert.alert('Invalid File', validationError);
+            return;
+          }
+
+          const attachment: Attachment = {
+            type: 'file',
+            path: base64,
+            mimeType: asset.mimeType ?? 'application/octet-stream',
+            filename: asset.name ?? 'file',
+          };
+
+          setAttachments((prev) => [...prev, attachment]);
+        };
+        reader.readAsDataURL(blob);
+      }
+    } catch (err) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to pick document');
+    } finally {
+      setPickingFile(false);
+    }
+  }, [caps, currentModel, selectedEntry]);
 
   useEffect(() => {
     if (!session) {
@@ -81,8 +170,18 @@ export default function ChatScreen() {
       );
       return;
     }
-    setShowAttachments(!showAttachments);
-  }, [caps, selectedEntry, currentModel, showAttachments]);
+    // Show action sheet to pick image or document
+    Alert.alert(
+      'Attach File',
+      'Choose file type',
+      [
+        { text: 'Image', onPress: pickImage },
+        { text: 'Document', onPress: pickDocument },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+      { cancelable: true }
+    );
+  }, [caps, selectedEntry, currentModel, pickImage, pickDocument]);
 
   const handleVoicePress = useCallback(() => {
     if (caps && caps.speechToText === false) {
@@ -349,6 +448,33 @@ function ChatBubble({ message, isStreaming, themeColors, styles, onCopy }: {
   const isAssistant = message.role === 'assistant';
   const isTool = message.role === 'tool';
 
+  const renderAttachments = (attachments: any[]) => {
+    if (!attachments || attachments.length === 0) return null;
+    return (
+      <View style={styles.bubbleAttachmentsContainer}>
+        {attachments.map((attachment: any, index: number) => (
+          <View key={`${attachment.path}-${index}`} style={styles.bubbleAttachmentItem}>
+            {attachment.type === 'image' && attachment.path.startsWith('data:') ? (
+              <Image
+                source={{ uri: attachment.path }}
+                style={styles.attachmentImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <View style={styles.attachmentFile}>
+                <LucideImage size={20} color={themeColors.textSecondary} />
+                <View style={styles.attachmentFileInfo}>
+                  <Text style={[styles.bubbleAttachmentName, { color: themeColors.textSecondary }]}>{attachment.filename ?? attachment.path}</Text>
+                  <Text style={[styles.attachmentMeta, { color: themeColors.textTertiary }]}>{attachment.mimeType}</Text>
+                </View>
+              </View>
+            )}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   if (isTool) {
     return (
       <View style={[styles.bubbleContainer, isUser ? styles.bubbleUser : styles.bubbleAssistant]}>
@@ -386,6 +512,11 @@ function ChatBubble({ message, isStreaming, themeColors, styles, onCopy }: {
   return (
     <View style={[styles.bubbleContainer, isUser ? styles.bubbleUser : styles.bubbleAssistant]}>
       <View style={[styles.bubble, isUser ? styles.bubbleUserStyle : styles.bubbleAssistantStyle]}>
+        {message.attachments && message.attachments.length > 0 && (
+          <View style={styles.messageAttachments}>
+            {renderAttachments(message.attachments)}
+          </View>
+        )}
         {isAssistant && message.content ? (
           <Markdown style={{ body: { color: themeColors.textPrimary, fontSize: fontSize.base, lineHeight: lineHeight.base } }}>
             {message.content}
@@ -614,6 +745,46 @@ function createStyles(themeColors: ReturnType<typeof getThemeColors>) {
       lineHeight: lineHeight.xs,
       textAlign: 'center',
       marginTop: spacing[2],
+    },
+    // Chat bubble attachment styles (separate from input attachments)
+    messageAttachments: {
+      marginBottom: spacing[2],
+    },
+    bubbleAttachmentsContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing[1],
+    },
+    bubbleAttachmentItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: themeColors.background,
+      borderRadius: radius.md,
+      padding: spacing[2],
+      borderWidth: 1,
+      borderColor: themeColors.border,
+    },
+    attachmentImage: {
+      width: 150,
+      height: 150,
+      borderRadius: radius.md,
+    },
+    attachmentFile: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing[2],
+    },
+    attachmentFileInfo: {
+      flex: 1,
+      minWidth: 0,
+    },
+    bubbleAttachmentName: {
+      fontSize: fontSize.sm,
+      flex: 1,
+    },
+    attachmentMeta: {
+      fontSize: fontSize.xs,
+      lineHeight: lineHeight.xs,
     },
   });
 }

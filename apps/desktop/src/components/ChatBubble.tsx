@@ -1,7 +1,7 @@
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
-import { MessageSquare, Bot, Wrench, Copy, Check, X, AlertCircle } from 'lucide-react';
-import type { NormalizedMessage, ToolCall } from '@prisma-ai/core/providers';
+import { MessageSquare, Bot, Wrench, Copy, Check, X, AlertCircle, Image } from 'lucide-react';
+import type { NormalizedMessage, ToolCall, Attachment } from '@prisma-ai/core/providers';
 
 interface ChatBubbleProps {
   message: NormalizedMessage;
@@ -79,6 +79,34 @@ function MessageHeader({ message }: { message: NormalizedMessage }) {
       {message.cost && message.cost > 0 && (
         <span className="text-text-tertiary">· ${message.cost.toFixed(4)}</span>
       )}
+    </div>
+  );
+}
+
+function Attachments({ attachments }: { attachments: Attachment[] }) {
+  if (!attachments || attachments.length === 0) return null;
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {attachments.map((attachment, index) => (
+        <div key={`${attachment.path}-${index}`} className="flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-lg">
+          {attachment.type === 'image' && attachment.path.startsWith('data:') ? (
+            <img
+              src={attachment.path}
+              alt={attachment.filename ?? 'Attachment'}
+              className="max-w-xs max-h-48 rounded-md object-contain"
+            />
+          ) : (
+            <>
+              <Image className="w-5 h-5 text-text-secondary flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <span className="text-text-secondary truncate block">{attachment.filename ?? attachment.path}</span>
+                <span className="text-text-tertiary text-xs">{attachment.mimeType}</span>
+              </div>
+            </>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -166,6 +194,9 @@ export function ChatBubble({ message, isStreaming, onCopy, onRetryTool }: ChatBu
               </div>
             )}
           </div>
+          {message.attachments && message.attachments.length > 0 && (
+            <Attachments attachments={message.attachments} />
+          )}
           {(isAssistant || isUser) && message.content && onCopy && (
             <button
               onClick={() => onCopy(message.content!)}

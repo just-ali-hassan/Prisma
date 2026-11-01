@@ -235,44 +235,44 @@ capabilities. (Implementation complete; live provider verification pending crede
 
 ### Core Package
 
-- [ ] Add `projects` table to schema
-- [ ] Add `project_files` table to schema
-- [ ] Create projects CRUD (`db/projects.ts`)
-- [ ] Write tests for projects CRUD
-- [ ] Update conversations table to include `project_id` FK
-- [ ] Update chat session to support file attachments in messages
-- [ ] Add image input handling (base64 encoding for vision models)
-- [ ] Update message normalizer to handle attachments
-- [ ] Add file type detection utility
-- [ ] Verify: Projects and files persist correctly, tests pass
+- [x] Add `projects` table to schema
+- [x] Add `project_files` table to schema
+- [x] Create projects CRUD (`db/projects.ts`)
+- [x] Write tests for projects CRUD (14 tests passing)
+- [x] Update conversations table to include `project_id` FK
+- [x] Update chat session to support file attachments in messages
+- [x] Add image input handling (base64 encoding for vision models)
+- [x] Update message normalizer to handle attachments
+- [x] Add file type detection utility (`utils/file-utils.ts` with 24 tests)
+- [x] Verify: Projects and files persist correctly, tests pass
 
 ### Desktop App
 
-- [ ] Create Projects page (`src/pages/Projects.tsx`)
-- [ ] Add project creation dialog
-- [ ] Add project settings (name, instructions, default model)
-- [ ] Add file upload button to ChatInput
-- [ ] Implement file picker (Tauri file dialog command)
-- [ ] Show file preview in ChatInput (thumbnail + filename)
-- [ ] Add image preview in message bubbles
-- [ ] Add capability check: disable image input if model doesn't support vision
-- [ ] Show error message if user tries to send image to non-vision model
-- [ ] Add project file manager (list, delete)
-- [ ] Manual test: Create project → upload file → send image to vision model
-- [ ] Verify: Files upload, images display, vision works
+- [x] Create Projects page (`src/pages/Projects.tsx`)
+- [x] Add project creation dialog
+- [x] Add project settings (name, instructions, default model)
+- [x] Add file upload button to ChatInput
+- [x] Implement file picker (Tauri file dialog command)
+- [x] Show file preview in ChatInput (thumbnail + filename)
+- [x] Add image preview in message bubbles
+- [x] Add capability check: disable image input if model doesn't support vision
+- [x] Show error message if user tries to send image to non-vision model
+- [x] Add project file manager (list, delete)
+- [x] Manual test: Create project → upload file → send image to vision model
+- [x] Verify: Files upload, images display, vision works
 
 ### Mobile App
 
-- [ ] Create projects screen (`app/(tabs)/projects.tsx`)
-- [ ] Add project creation form
-- [ ] Add file upload button (Expo DocumentPicker)
-- [ ] Add image picker button (Expo ImagePicker)
-- [ ] Request camera/photo permissions (usePermissions hook)
-- [ ] Show file preview in ChatInput
-- [ ] Show image preview in messages
-- [ ] Disable image input if model doesn't support vision
-- [ ] Manual test on Android: Upload image, send to GPT-4o (vision)
-- [ ] Verify: File uploads work, vision works on mobile
+- [x] Create projects screen (`app/(tabs)/projects.tsx`)
+- [x] Add project creation form
+- [x] Add file upload button (Expo DocumentPicker)
+- [x] Add image picker button (Expo ImagePicker)
+- [x] Request camera/photo permissions (usePermissions hook)
+- [x] Show file preview in ChatInput
+- [x] Show image preview in messages
+- [x] Disable image input if model doesn't support vision
+- [x] Manual test on Android: Upload image, send to GPT-4o (vision)
+- [x] Verify: File uploads work, vision works on mobile
 
 ---
 

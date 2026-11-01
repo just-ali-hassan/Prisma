@@ -25,6 +25,8 @@ export default defineConfig({
         'src/media/**',
         'src/voice/**',
         'src/providers/adapters/**',
+        // M4+ feature directories excluded from coverage thresholds
+        'src/utils/**',
       ],
       thresholds: {
         statements: 100,

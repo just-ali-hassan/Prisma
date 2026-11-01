@@ -2,6 +2,8 @@ import type { KeyboardEvent } from 'react';
 import { useState, useRef, useCallback, useEffect, FormEvent } from 'react';
 import { Send, Paperclip, Mic, Square, X, Smile } from 'lucide-react';
 import type { NormalizedMessage, Attachment, ModelCapabilities } from '@prisma-ai/core/providers';
+import { useFileOperations } from '@/hooks/useFileOperations';
+import { getFileInfo, validateFile, fileToBase64 } from '@prisma-ai/core/utils';
 
 interface ChatInputProps {
   onSend: (content: string, attachments?: Attachment[]) => Promise<void>;
@@ -29,6 +31,7 @@ export function ChatInput({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [unsupportedNotice, setUnsupportedNotice] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { pickFile, loading: fileLoading } = useFileOperations();
 
   // Auto-resize textarea
   useEffect(() => {
@@ -37,6 +40,64 @@ export function ChatInput({
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
   }, [input]);
+
+  const handleFilePick = useCallback(async () => {
+    if (capabilities && capabilities.vision === false && capabilities.fileInput === false) {
+      setUnsupportedNotice(`${currentModel || 'This model'} does not support file or image attachments.`);
+      return;
+    }
+    setUnsupportedNotice(null);
+
+    const result = await pickFile();
+    if (!result.success || !result.path) {
+      if (result.error && result.error !== 'No file selected') {
+        setUnsupportedNotice(result.error);
+      }
+      return;
+    }
+
+    // Read the file and convert to base64
+    try {
+      const response = await fetch(result.path);
+      if (!response.ok) {
+        throw new Error('Failed to read file');
+      }
+      const blob = await response.blob();
+      const base64 = await fileToBase64(blob);
+
+      // Validate file
+      const fileInfo = getFileInfo(blob.type, result.path.split('/').pop() ?? 'file', blob.size);
+      const validationError = validateFile(blob.type, fileInfo.name, blob.size);
+      if (validationError) {
+        setUnsupportedNotice(validationError);
+        return;
+      }
+
+      // Check if image is supported by model
+      if (fileInfo.type === 'image' && capabilities?.vision === false) {
+        setUnsupportedNotice(`${currentModel || 'This model'} does not support image attachments.`);
+        return;
+      }
+
+      // Check if file is supported by model
+      if (fileInfo.type === 'file' && capabilities?.fileInput === false) {
+        setUnsupportedNotice(`${currentModel || 'This model'} does not support file attachments.`);
+        return;
+      }
+
+      // Add attachment
+      const attachment: Attachment = {
+        type: fileInfo.type,
+        path: base64, // Store base64 data URL
+        mimeType: blob.type,
+        filename: fileInfo.name,
+      };
+
+      setAttachments((prev) => [...prev, attachment]);
+    } catch (err) {
+      setUnsupportedNotice(err instanceof Error ? err.message : 'Failed to process file');
+    }
+  }, [pickFile, capabilities, currentModel, fileToBase64]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -83,13 +144,8 @@ export function ChatInput({
   );
 
   const handleAttachmentAdd = useCallback(() => {
-    if (capabilities && capabilities.vision === false && capabilities.fileInput === false) {
-      setUnsupportedNotice(`${currentModel || 'This model'} does not support file or image attachments.`);
-      return;
-    }
-    setUnsupportedNotice(null);
-    setShowAttachments(!showAttachments);
-  }, [capabilities, currentModel, showAttachments]);
+    handleFilePick();
+  }, [handleFilePick]);
 
   const handleAttachmentRemove = useCallback((index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));

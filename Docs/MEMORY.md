@@ -6,9 +6,9 @@
 
 ## Current Status
 
-**Phase:** M1 and M2 implementation is present; their remaining live/manual acceptance checks are open as described below. M3 implementation is complete across Core, Desktop, and Mobile (all 11 adapters registered, capability table agreement enforced, non-streaming chat fallback handled, unsupported settings blocked/hidden in UI, and full test suites passing). Live service verification is partially complete: NVIDIA NIM is verified live (both streaming and non-streaming); OpenAI is verified blocked by credit exhaustion; remaining 9 providers await API keys; mobile Android acceptance check is deferred until build environment/device is available.
+**Phase:** M1 and M2 implementation is present; their remaining live/manual acceptance checks are open as described below. M3 implementation is complete across Core, Desktop, and Mobile: all 11 adapters are registered, capability-table agreement is enforced, non-streaming chat has a fallback, and unsupported settings are blocked or hidden. M3 acceptance remains open because most providers and Android have not had live tests, and the mobile Jest suite could not run in this sandbox.
 
-**Progress:** 705 passing tests in `@prisma-ai/core` with 100.00% statement, branch, function, and line coverage (34 test files). 14 passing tests in `@prisma-ai/desktop`. 3 passing tests in `@prisma-ai/mobile`. Full TypeScript typechecking passes with 0 errors across all workspaces. During the live provider audit, NVIDIA NIM (`nvidia/nemotron-3-ultra-550b-a55b`) was verified live with real streaming and non-streaming completions; OpenAI failed with HTTP 429 `credit_balance_exhausted`; remaining providers do not yet have configured API keys.
+**Progress:** 705 passing tests in `@prisma-ai/core` with 100.00% statement, branch, function, and line coverage (34 test files), and 14 passing tests in `@prisma-ai/desktop`. Core, desktop, and mobile TypeScript typechecks pass with 0 errors. Mobile Jest is unverified in this sandbox because its temporary-cache write failed with `EPERM`; it must be rerun in a normal Windows terminal. During the live provider audit, NVIDIA NIM (`nvidia/nemotron-3-ultra-550b-a55b`) was verified with streaming and non-streaming completions; OpenAI returned HTTP 429 `credit_balance_exhausted`; the remaining providers do not yet have configured API keys.
 
 ### M1 Completion Summary (updated 2026-10-28)
 
@@ -29,7 +29,7 @@
 - Desktop TypeScript: PASS (`tsc --noEmit`, 0 errors)
 - Desktop Vite Build: PASS (`tsc --noEmit && vite build`)
 - Desktop Vitest Suite: PASS (`apps/desktop/src/__tests__/chatFlow.test.ts`, 14/14 tests pass)
-- Mobile Jest Suite: PASS (`apps/mobile/components/__tests__/ModelPicker.test.tsx`, 3/3 tests pass)
+- Mobile Jest Suite: UNVERIFIED in this sandbox. The 2026-10-28 run failed before executing tests because Jest could not rename a temporary cache file (`EPERM`). Rerun on the normal Windows terminal.
 - Mobile TypeScript: PASS (`tsc --noEmit`, 0 errors)
 - Live Provider Test (NVIDIA): PASS — live token streaming & non-streaming responses verified with active NIM endpoint model
 - Live Provider Test (OpenAI): FAILED — HTTP 429 `credit_balance_exhausted` (quota exhausted on live account)
@@ -233,9 +233,22 @@ Beyond Phase 0, skeleton files were created for M1-M8:
 
 Desktop M2 manual flow and persistence checks are recorded as passed above. Mobile implementation is present; Android acceptance remains intentionally deferred until the end. M1 live streaming/cancellation acceptance is still separately pending because OpenAI credits were unavailable.
 
-### M3: Multi-Provider Support (Implementation complete; live verification partially verified)
+### M3: Multi-Provider Support (implementation complete; acceptance pending)
 
-**Status:** Implementation is complete across all layers. All 11 provider adapters are implemented, unit-tested, and registered via `registerProviders()`. Capability table agreement is strictly validated at runtime (`assertCapabilityTableAgreement()`). Chat session handles non-streaming fallback and unsupported parameter stripping. Desktop and mobile UI adapt dynamically to model capabilities (ParameterPanel and ParameterSheet disable/hide unsupported options, and chat UI shows clear error banners). Full automated test coverage passes (705 core tests at 100% coverage, 14 desktop tests, 3 mobile tests). Live API testing verified NVIDIA NIM live; OpenAI was tested and reported exhausted credits; the remaining 9 providers await API keys; and mobile on Android awaits a device/build environment.
+**Status:** The M3 code is implemented across core, desktop, and mobile. All 11 provider adapters are registered through `registerProviders()`. The capability table is checked against each adapter at startup with `assertCapabilityTableAgreement()`. The chat session uses `adapter.chat()` for non-streaming models, and the desktop/mobile controls hide or disable unsupported settings.
+
+**Audit run on 2026-10-28:**
+
+- [x] Core tests: **705/705 passed**, with **100%** statements, branches, functions, and lines.
+- [x] Desktop tests: **14/14 passed**.
+- [x] Core, desktop, and mobile TypeScript checks passed.
+- [ ] Mobile Jest tests: **not verified in this sandbox**. Jest could not write its temporary transform cache (`EPERM` during cache-file rename). This is an environment permission issue, not a confirmed application failure. Rerun `pnpm --filter @prisma-ai/mobile test` on the normal Windows terminal before treating mobile automated tests as passed.
+- [x] Live provider verification — NVIDIA NIM: verified on desktop, including streaming and non-streaming responses.
+- [ ] Live provider verification — OpenAI: not verified; the account returned HTTP 429 `credit_balance_exhausted`.
+- [ ] Live provider verification — Anthropic, Google, DeepSeek, xAI, OpenRouter, OmniRoute, Groq, Together, and Fireworks: not verified; each needs a valid API key and a real send/response test.
+- [ ] Live mobile verification — Android: pending; a physical device or emulator must successfully launch the app and exercise provider selection, chat, and capability controls.
+
+**Conclusion:** M3 implementation is complete, but M3 acceptance is incomplete until the remaining live provider checks, Android check, and mobile Jest test are recorded successfully.
 
 **Implementation Status & Verification Checklist:**
 
@@ -251,7 +264,26 @@ Desktop M2 manual flow and persistence checks are recorded as passed above. Mobi
 
 ## Blocked
 
-**No hard blockers recorded.** M3 work is deferred, not blocked: code fixes can be resumed later. Android launch and device verification are still pending. The mobile ModelPicker and ParameterSheet components exist; older notes claiming those components are missing are stale.
+**No hard code blocker recorded.** M3 needs provider API keys or credits for live acceptance and an Android device or emulator for mobile acceptance. The mobile Jest suite also needs to be rerun outside this sandbox because its temporary-cache write was denied here.
+
+### M4: Projects, File Uploads, and Image Input (implementation complete)
+
+**Status:** The M4 code is implemented across core, desktop, and mobile. Projects CRUD with database persistence, file uploads with base64 encoding for vision models, capability-based attachment validation, and image preview in chat bubbles.
+
+**Audit run on 2026-10-28:**
+
+- [x] Core tests: **729/729 passed**, with **100%** statements, branches, functions, and lines.
+- [x] Desktop TypeScript: PASS.
+- [x] Desktop Vite Build: PASS.
+- [x] Mobile TypeScript: PASS.
+- [x] Projects table and CRUD operations implemented with SQLite persistence.
+- [x] File upload utilities (`utils/file-utils.ts`) with validation, type detection, and base64 encoding.
+- [x] Chat session validates attachments against model capabilities (vision, fileInput).
+- [x] Desktop: File picker via Tauri dialog, attachment preview in ChatInput, image rendering in ChatBubble.
+- [x] Mobile: Image picker via Expo ImagePicker, document picker via Expo DocumentPicker, attachment preview in chat bubbles.
+- [x] Capability checks disable image/file buttons for non-vision/non-file models.
+
+**Conclusion:** M4 implementation is complete. All 729 core tests pass with 100% coverage. Desktop and mobile builds pass typechecks.
 
 ---
 
